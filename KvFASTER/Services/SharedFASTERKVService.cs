@@ -48,12 +48,13 @@ namespace KvFASTER.Services
              );
 
             this._logger.LogInformation("Service started.....");
-
-            RestoreLastCheckPointImage();
-
+            //Attempt to Resume Session
+            AttemptRestoreFromLastCheckpoint();
+            //Issue Periodic Checkpoints Automatically
+            IssuePeriodicCheckpoints();
         }
 
-        public void RestoreLastCheckPointImage()
+        private void AttemptRestoreFromLastCheckpoint()
         {
             try
             {
@@ -69,23 +70,22 @@ namespace KvFASTER.Services
                 this._logger.LogInformation("Restoring last checkpoints imagery....(NO RECOVERY IMAGES)");
             }
         }
-        public void CreateRestoreCheckpointImage()
+
+        private void IssuePeriodicCheckpoints()
         {
-            try
+            var t = new Thread(() =>
             {
-                //Check points restore
-                this._logger.LogInformation("Creating Restore Checkpoint....");
-                // Take fold-over checkpoint of FASTER, wait to complete
-                CarsCollectionFasterKV.TakeFullCheckpointAsync(CheckpointType.FoldOver)
-                                      .GetAwaiter().GetResult();
-                CarsFasterKV.TakeFullCheckpointAsync(CheckpointType.FoldOver)
-                                      .GetAwaiter().GetResult();
-                this._logger.LogInformation("Creating Restore Checkpoint....DONE");
-            }
-            catch (Exception ex)
-            {
-                this._logger.LogInformation($"Creating Restore Checkpoint....ERROR: {ex.Message}");
-            }
+                while (true)
+                {
+                    //On Every 10 Seconds
+                    Thread.Sleep(10000);
+                    this._logger.LogInformation("Creating Restore Checkpoint....");
+                    (_, _) = CarsCollectionFasterKV.TakeHybridLogCheckpointAsync(CheckpointType.FoldOver).GetAwaiter().GetResult();
+                    (_, _) = CarsFasterKV.TakeHybridLogCheckpointAsync(CheckpointType.FoldOver).GetAwaiter().GetResult();
+                    this._logger.LogInformation("Creating Restore Checkpoint....DONE");
+                }
+            });
+            t.Start();
         }
 
         public Task TerminateService(CancellationToken cancellationToken)
