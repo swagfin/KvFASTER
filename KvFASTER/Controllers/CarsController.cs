@@ -22,13 +22,6 @@ namespace KvFASTER.Controllers
             SharedKv = sharedKv;
         }
 
-        [HttpGet("CreateRestorePoint")]
-        public IActionResult GetCreateRestorePoint()
-        {
-            SharedKv.CreateRestoreCheckpointImage();
-            return Ok();
-        }
-
         [HttpGet]
         public IActionResult Get()
         {
