@@ -11,7 +11,7 @@ namespace KvFASTER.Services
         private readonly ILogger<YetAnotherTestingFASTERKVService> _logger;
         private string _storagePath;
 
-        public FasterKV<string, long> CarsFasterKV { get; set; }
+        public FasterKV<Guid, Student> DataStoreKV { get; set; }
 
         public YetAnotherTestingFASTERKVService(ILogger<YetAnotherTestingFASTERKVService> logger)
         {
@@ -28,7 +28,7 @@ namespace KvFASTER.Services
             //For Checkpoint or Call it Restore Points
             var logCheckPointManager = new DeviceLogCommitCheckpointManager(new LocalStorageNamedDeviceFactory(), new DefaultCheckpointNamingScheme(_storagePath + "\\Checkpoints\\"));
 
-            this.CarsFasterKV = new FasterKV<string, long>(
+            this.DataStoreKV = new FasterKV<Guid, Student>(
              size: 1L << 20, // 1M cache lines of 64 bytes each = 64MB hash table
              logSettings: new LogSettings { LogDevice = log, ObjectLogDevice = objLog }, // specify log settings (e.g., size of log in memory)
              checkpointSettings: new CheckpointSettings { CheckpointManager = logCheckPointManager }
@@ -44,8 +44,8 @@ namespace KvFASTER.Services
                 //Check points restore
                 this._logger.LogInformation("Restoring last checkpoints imagery....");
                 // Recover store from latest checkpoint
-                CarsFasterKV.Recover();
-                CarsFasterKV.Recover();
+                DataStoreKV.Recover();
+                DataStoreKV.Recover();
                 this._logger.LogInformation("Restoring last checkpoints imagery....DONE");
             }
             catch (Exception)
@@ -59,7 +59,7 @@ namespace KvFASTER.Services
             {
                 //Check points restore
                 this._logger.LogInformation("Creating Restore Checkpoint....");
-                (_, _) = CarsFasterKV.TakeHybridLogCheckpointAsync(CheckpointType.FoldOver).GetAwaiter().GetResult();
+                (_, _) = DataStoreKV.TakeHybridLogCheckpointAsync(CheckpointType.FoldOver).GetAwaiter().GetResult();
                 this._logger.LogInformation("Creating Restore Checkpoint....DONE");
             }
             catch (Exception ex)
@@ -87,7 +87,7 @@ namespace KvFASTER.Services
         {
             // Dispose store
             // Close devices
-            try { CarsFasterKV.Dispose(); } catch { }
+            try { DataStoreKV.Dispose(); } catch { }
         }
 
         internal void ResetAndDisposeEverything()
@@ -101,5 +101,14 @@ namespace KvFASTER.Services
             InitializeService();
 
         }
+    }
+
+    public class Student
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string StudentName { get; set; } = string.Empty;
+        public double Marks { get; set; } = 0;
+        public DateTime RegistrationDate { get; set; }
+        public string StudentRegNo { get; set; } = "REG-" + new Random().Next(1000, 9999).ToString();
     }
 }

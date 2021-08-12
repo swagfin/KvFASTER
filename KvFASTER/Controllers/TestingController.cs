@@ -2,6 +2,7 @@
 using KvFASTER.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -24,15 +25,15 @@ namespace KvFASTER.Controllers
         [HttpGet("GetStoredCollection")]
         public IActionResult GetStoredCollection(bool includeData = false)
         {
-            using (var session = YetAnotherTestingFASTERKVService.CarsFasterKV.NewSession(new SimpleFunctions<string, long>()))
+            using (var session = YetAnotherTestingFASTERKVService.DataStoreKV.NewSession(new SimpleFunctions<Guid, Student>()))
             {
                 Stopwatch stopwatch = new Stopwatch();
                 stopwatch.Start();
                 var iterator = session.Iterate();
-                Dictionary<string, long> allReg = new Dictionary<string, long>();
-                while (iterator.GetNext(out RecordInfo recordInfo, out string _key, out long _value))
+                List<Student> allReg = new List<Student>();
+                while (iterator.GetNext(out RecordInfo recordInfo, out Guid _key, out Student _value))
                 {
-                    allReg.Add(_key, _value);
+                    allReg.Add(_value);
                 }
                 stopwatch.Stop();
                 var responseData = new DataRetrievedResponse
@@ -47,20 +48,21 @@ namespace KvFASTER.Controllers
         }
 
         [HttpGet("GetStoredCollection/{key}")]
-        public IActionResult GetStoredCollectionByKey(string key)
+        public IActionResult GetStoredCollectionByKey(Guid key)
         {
-            using (var session = YetAnotherTestingFASTERKVService.CarsFasterKV.NewSession(new SimpleFunctions<string, long>()))
+            using (var session = YetAnotherTestingFASTERKVService.DataStoreKV.NewSession(new SimpleFunctions<Guid, Student>()))
             {
                 Stopwatch stopwatch = new Stopwatch();
                 stopwatch.Start();
-                long _value = 0;
-                var status = session.Read(key, out _value);
+                Student _value = null;
+                var status = session.Read(ref key, ref _value);
                 var responseData = new DataRetrievedResponse
                 {
-                    RecordsCount = _value > 0 ? 1 : 0,
+                    RecordsCount = _value != null ? 1 : 0,
                     ElaspedMilliseconds = stopwatch.ElapsedMilliseconds,
-                    Data = _value > 0 ? $"KEY: {key} | VALUE: {_value}" : null
+                    Data = new List<Student>()
                 };
+                responseData.Data.Add(_value);
                 return new ObjectResult(responseData);
             }
 
@@ -71,7 +73,7 @@ namespace KvFASTER.Controllers
         {
             //Check
             count = (count < 1) ? 0 : count;
-            using (var session = YetAnotherTestingFASTERKVService.CarsFasterKV.NewSession(new SimpleFunctions<string, long>()))
+            using (var session = YetAnotherTestingFASTERKVService.DataStoreKV.NewSession(new SimpleFunctions<Guid, Student>()))
             {
                 this.Logger.LogInformation("Creating Demo Collection.....");
                 Stopwatch stopwatch = new Stopwatch();
@@ -79,7 +81,15 @@ namespace KvFASTER.Controllers
                 int indexAt = 1;
                 while (count > 0)
                 {
-                    session.Upsert($"key_id_{indexAt}", indexAt);
+                    Guid studentKey = Guid.NewGuid();
+                    Student newStudent = new Student
+                    {
+                        Id = studentKey,
+                        StudentName = $"STUDENT-NO-{indexAt:N2}",
+                        Marks = new Random().Next(100),
+                        RegistrationDate = DateTime.Now
+                    };
+                    session.Upsert(ref studentKey, ref newStudent);
                     count--;
                     indexAt++;
                 }
@@ -125,6 +135,6 @@ namespace KvFASTER.Controllers
     {
         public int RecordsCount { get; set; }
         public long ElaspedMilliseconds { get; set; }
-        public object Data { get; set; }
+        public List<Student> Data { get; set; } = new List<Student>();
     }
 }
